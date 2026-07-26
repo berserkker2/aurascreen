@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AuraScreen | AI Vibe Recommender</title>
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #0f172a 0%, #020617 100%);
+            --card-bg: rgba(30, 35, 45, 0.6);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --text-color: #f8fafc;
+            --accent: #6366f1;
+            --accent-hover: #4f46e5;
+            --gemini-color: #8ab4f8;
+        }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: var(--bg-gradient);
+            background-attachment: fixed;
+            color: var(--text-color);
+            margin: 0;
+            padding: 2rem;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+            position: relative;
+        }
+        .header h1 {
+            font-size: 3rem;
+            margin: 0;
+            background: -webkit-linear-gradient(45deg, #8ab4f8, #c48cb3);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .settings-btn {
+            position: absolute;
+            top: 10px;
+            right: 0;
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--card-border);
+            font-size: 0.9rem;
+            backdrop-filter: blur(5px);
+            padding: 8px 12px;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+        }
+        .settings-btn:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+        .settings-panel {
+            background-color: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            border: 1px solid var(--card-border);
+            display: none;
+        }
+        .settings-panel input {
+            width: 100%;
+            margin-bottom: 10px;
+            box-sizing: border-box;
+        }
+        .search-container {
+            background-color: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--card-border);
+            padding: 25px;
+            border-radius: 16px;
+            margin-bottom: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            align-items: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        .search-row {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            width: 100%;
+        }
+        input[type="text"], input[type="password"], input[type="number"] {
+            padding: 12px 15px;
+            font-size: 1rem;
+            border-radius: 8px;
+            border: 1px solid var(--card-border);
+            background: rgba(0, 0, 0, 0.3);
+            color: white;
+            outline: none;
+            transition: border-color 0.3s ease;
+        }
+        input[type="text"]:focus, input[type="number"]:focus {
+            border-color: var(--accent);
+        }
+        #searchInput {
+            width: 600px;
+            max-width: 100%;
+        }
+        input[type="number"] {
+            width: 120px;
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 1rem;
+            background-color: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s ease, transform 0.1s ease;
+        }
+        button:hover {
+            background-color: var(--accent-hover);
+        }
+        button:active {
+            transform: scale(0.98);
+        }
+        .toggle-group {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            font-size: 1.1rem;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 25px;
+        }
+        .card {
+            background-color: var(--card-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+            text-decoration: none;
+            color: inherit;
+        }
+        .card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.5);
+            border-color: rgba(255,255,255,0.2);
+        }
+        .score-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: #ffd700;
+            padding: 5px 10px;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 0.95rem;
+            backdrop-filter: blur(4px);
+            z-index: 2;
+            border: 1px solid rgba(255,215,0,0.3);
+        }
+        .card img {
+            width: 100%;
+            height: 400px;
+            object-fit: cover;
+            border-bottom: 1px solid var(--card-border);
+        }
+        .card-content {
+            padding: 20px;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        .card-title {
+            font-size: 1.25rem;
+            margin: 0 0 10px 0;
+            font-weight: bold;
+            color: #ffffff;
+        }
+        .badge {
+            display: inline-block;
+            background-color: rgba(255,255,255,0.1);
+            padding: 4px 10px;
+            border-radius: 15px;
+            font-size: 0.75rem;
+            margin-right: 5px;
+            margin-bottom: 8px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .ai-reason {
+            background: rgba(138, 180, 248, 0.1);
+            border-left: 3px solid var(--gemini-color);
+            padding: 12px;
+            border-radius: 0 6px 6px 0;
+            font-size: 0.85rem;
+            color: #e2e8f0;
+            margin-bottom: 12px;
+            line-height: 1.5;
+        }
+        .meta-text, .overview {
+            font-size: 0.85rem;
+            color: #94a3b8;
+            line-height: 1.5;
+            margin-bottom: 10px;
+        }
+        .click-hint {
+            margin-top: auto;
+            text-align: right;
+            font-size: 0.75rem;
+            color: var(--accent);
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .card:hover .click-hint {
+            opacity: 1;
+        }
+
+        /* --- MOBILE OPTIMIZATION --- */
+        @media (max-width: 768px) {
+            body {
+                padding: 1rem;
+            }
+            .header h1 {
+                font-size: 2.2rem;
+                margin-top: 40px; /* Space for settings button */
+            }
+            .settings-btn {
+                position: absolute;
+                top: 0;
+                right: 0;
+            }
+            .search-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            #searchInput, input[type="number"], button {
+                width: 100% !important;
+                box-sizing: border-box;
+            }
+            .search-container {
+                padding: 15px;
+            }
+            .grid {
+                grid-template-columns: repeat(auto-fill, minmax(100%, 1fr));
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <button class="settings-btn" onclick="toggleSettings()">⚙️ Settings</button>
+            <h1>✨ AuraScreen</h1>
+            <p style="color: #94a3b8; font-size: 1.1rem; margin-top: 5px;">Your AI Vibe Checker & Movie Matchmaker</p>
+        </div>
+
+        <div id="settingsPanel" class="settings-panel">
+            <h3 style="margin-top:0;">🔑 API Configuration</h3>
+            <label>Google Gemini API Key:</label>
+            <input type="password" id="geminiKey" placeholder="AIzaSy...">
+            <label>TMDB Read Access Token (v4):</label>
+            <input type="password" id="tmdbKey" placeholder="eyJhbGciOi...">
+            <button onclick="saveKeys()" style="margin-top: 10px; width: 100%;">Save Keys</button>
+        </div>
+
+        <div class="search-container">
+            <div class="toggle-group">
+                <label><input type="radio" name="searchType" value="movie" checked> 🎥 Movies</label>
+                <label><input type="radio" name="searchType" value="tv"> 📺 TV Series</label>
+            </div>
+            
+            <div class="search-row">
+                <input type="text" id="searchInput" placeholder="e.g. A neon-drenched cyberpunk thriller">
+            </div>
+            
+            <div class="search-row">
+                <input type="number" id="startYear" placeholder="Start Year" min="1900" max="2030">
+                <span style="align-self: center; color: #94a3b8; display: none;">to</span>
+                <input type="number" id="endYear" placeholder="End Year" min="1900" max="2030">
+                <button onclick="runAiRecommendation()">Discover Aura</button>
+            </div>
+        </div>
+
+        <div id="results" class="grid"></div>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            loadKeys();
+            setupEnterKeySupport();
+        });
+
+        // --- ENTER KEY LOGIC ---
+        function setupEnterKeySupport() {
+            const inputs = ['searchInput', 'startYear', 'endYear'];
+            inputs.forEach(id => {
+                document.getElementById(id).addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault(); // Prevent accidental form submissions
+                        runAiRecommendation();
+                    }
+                });
+            });
+        }
+
+        function toggleSettings() {
+            const panel = document.getElementById('settingsPanel');
+            panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+        }
+
+        function loadKeys() {
+            const storedGemini = localStorage.getItem('cine_gemini_key');
+            const storedTmdb = localStorage.getItem('cine_tmdb_key');
+            if (storedGemini) document.getElementById('geminiKey').value = storedGemini;
+            if (storedTmdb) document.getElementById('tmdbKey').value = storedTmdb;
+            if (!storedGemini || !storedTmdb) document.getElementById('settingsPanel').style.display = 'block';
+        }
+
+        function saveKeys() {
+            localStorage.setItem('cine_gemini_key', document.getElementById('geminiKey').value.trim());
+            localStorage.setItem('cine_tmdb_key', document.getElementById('tmdbKey').value.trim());
+            alert("Keys saved locally!");
+            toggleSettings();
+        }
+
+        async function runAiRecommendation() {
+            const query = document.getElementById('searchInput').value.trim();
+            const type = document.querySelector('input[name="searchType"]:checked').value;
+            const startYear = document.getElementById('startYear').value;
+            const endYear = document.getElementById('endYear').value;
+            
+            const geminiKey = localStorage.getItem('cine_gemini_key');
+            const tmdbKey = localStorage.getItem('cine_tmdb_key');
+
+            if (!query) return alert("Please enter a title or description.");
+            if (!geminiKey || !tmdbKey) return alert("Configure both API keys in Settings first.");
+
+            const resultsContainer = document.getElementById('results');
+            resultsContainer.innerHTML = "<p style='text-align:center; grid-column: 1/-1; font-size: 1.1rem;'>🤖 Analyzing the aura of your request...</p>";
+
+            try {
+                // Step 1: Prompt Gemini to do true conceptual reasoning
+                const recommendations = await getGeminiRecommendations(query, type, startYear, endYear, geminiKey);
+                
+                resultsContainer.innerHTML = "<p style='text-align:center; grid-column: 1/-1; font-size: 1.1rem;'>🖼️ Fetching visual data from TMDB...</p>";
+
+                // Step 2: Hydrate Gemini's recommendations with TMDB poster & cast data
+                resultsContainer.innerHTML = "";
+                for (const rec of recommendations) {
+                    const tmdbData = await fetchTmdbMetadata(rec.title, type, tmdbKey);
+                    renderCard(rec, tmdbData, type);
+                }
+
+            } catch (error) {
+                console.error(error);
+                resultsContainer.innerHTML = `<p style='text-align:center; grid-column: 1/-1; color: #ef4444;'>Error: ${error.message}</p>`;
+            }
+        }
+
+        // --- GEMINI REASONING API CALL ---
+        async function getGeminiRecommendations(userQuery, mediaType, startYear, endYear, key) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${key}`;
+            
+            let yearConstraint = "";
+            if (startYear && endYear) {
+                yearConstraint = `\nCRITICAL RULE: You MUST ONLY recommend titles originally released between the years ${startYear} and ${endYear} (inclusive).`;
+            } else if (startYear) {
+                yearConstraint = `\nCRITICAL RULE: You MUST ONLY recommend titles originally released in or after ${startYear}.`;
+            } else if (endYear) {
+                yearConstraint = `\nCRITICAL RULE: You MUST ONLY recommend titles originally released in or before ${endYear}.`;
+            }
+
+            const prompt = `
+You are an expert film analyst. The user wants recommendations for ${mediaType}s based on this request: "${userQuery}".
+${yearConstraint}
+
+Analyze the core themes, emotional tone, narrative style, pacing, and subtext behind the request.
+Provide 12 to 20 highly relevant recommendations that match this vibe. Do NOT rely strictly on surface genres—focus on deep conceptual similarities.
+
+Respond ONLY with valid JSON in this exact structure, with no markdown formatting or extra text outside the JSON:
+[
+  {
+    "title": "Exact Official Movie or Show Title",
+    "reason": "1-2 short sentences explaining why Gemini specifically picked this based on thematic/conceptual overlap."
+  }
+]
+`;
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+            });
+
+            const data = await response.json();
+            
+            if (data.error) throw new Error(data.error.message);
+
+            let rawText = data.candidates[0].content.parts[0].text.trim();
+            // Clean markdown blocks if returned
+            rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+
+            return JSON.parse(rawText);
+        }
+
+        // --- TMDB METADATA HYDRATION ---
+        async function fetchTmdbMetadata(title, mediaType, key) {
+            const headers = { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' };
+            
+            try {
+                const searchRes = await fetch(`https://api.themoviedb.org/3/search/${mediaType}?query=${encodeURIComponent(title)}`, { headers });
+                const searchData = await searchRes.json();
+
+                if (!searchData.results || searchData.results.length === 0) return null;
+
+                const item = searchData.results[0];
+
+                const detailRes = await fetch(`https://api.themoviedb.org/3/${mediaType}/${item.id}?append_to_response=credits`, { headers });
+                return await detailRes.json();
+            } catch (err) {
+                return null;
+            }
+        }
+
+        // --- RENDER CARD ---
+        function renderCard(geminiRec, tmdbData, mediaType) {
+            const resultsContainer = document.getElementById('results');
+            
+            const title = geminiRec.title;
+            const aiReason = geminiRec.reason;
+
+            let year = "N/A";
+            let genres = "";
+            let cast = "N/A";
+            let score = "N/A";
+            let overview = "No database description available.";
+            let poster = 'https://via.placeholder.com/500x750/1e293b/94a3b8?text=No+Poster';
+            let tmdbUrl = "#";
+
+            if (tmdbData) {
+                tmdbUrl = `https://www.themoviedb.org/${mediaType}/${tmdbData.id}`;
+                const date = tmdbData.release_date || tmdbData.first_air_date || "";
+                year = date ? date.split('-')[0] : "N/A";
+                score = tmdbData.vote_average ? tmdbData.vote_average.toFixed(1) : "N/A";
+                genres = tmdbData.genres ? tmdbData.genres.map(g => `<span class="badge">${g.name}</span>`).join('') : '';
+                
+                if (tmdbData.credits && tmdbData.credits.cast) {
+                    cast = tmdbData.credits.cast.slice(0, 3).map(a => a.name).join(', ');
+                }
+                
+                overview = tmdbData.overview || overview;
+                
+                if (tmdbData.poster_path) {
+                    poster = `https://image.tmdb.org/t/p/w500${tmdbData.poster_path}`;
+                }
+            }
+
+            const cardHtml = `
+                <a href="${tmdbUrl}" target="_blank" class="card" title="View on TMDB">
+                    <div class="score-badge">⭐ ${score}</div>
+                    <img src="${poster}" alt="${title}">
+                    <div class="card-content">
+                        <h3 class="card-title">${title} (${year})</h3>
+                        <div style="margin-bottom: 8px;">${genres}</div>
+                        <div class="ai-reason">✨ <strong>Aura Analysis:</strong> ${aiReason}</div>
+                        <div class="meta-text"><strong>Cast:</strong> ${cast}</div>
+                        <div class="overview">${overview.substring(0, 120)}...</div>
+                        <div class="click-hint">View on TMDB ➔</div>
+                    </div>
+                </a>
+            `;
+            
+            resultsContainer.innerHTML += cardHtml;
+        }
+    </script>
+</body>
+</html>
